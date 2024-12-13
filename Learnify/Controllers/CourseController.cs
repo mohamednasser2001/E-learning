@@ -48,7 +48,7 @@ namespace Learnify.Controllers
             if (ModelState.IsValid)
             {
                 var course = mapper.Map<Course>(courseDTO);
-                courseRepository.Create(course);
+                courseRepository.Add(course);
                 courseRepository.Commit();
 
                 return Created();

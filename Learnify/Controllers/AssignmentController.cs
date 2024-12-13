@@ -47,7 +47,7 @@ namespace Learnify.Controllers
             if (ModelState.IsValid)
             {
                 var assignment = mapper.Map<Assignment>(assignmentDTO);
-                assignmentRepository.Create(assignment);
+                assignmentRepository.Add(assignment);
                 assignmentRepository.Commit();
 
                 return Created();

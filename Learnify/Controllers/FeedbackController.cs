@@ -28,7 +28,7 @@ namespace Learnify.Controllers
         {
             if (ModelState.IsValid)
             {
-                feedbackRepository.Create(feedback);
+                feedbackRepository.Add(feedback);
                 feedbackRepository.Commit();
 
                 return Created();

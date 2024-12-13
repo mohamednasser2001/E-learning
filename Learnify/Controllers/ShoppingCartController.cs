@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Models;
 using Stripe.Checkout;
+using System.Linq.Expressions;
 
 namespace Learnify.Controllers
 {
@@ -11,7 +12,7 @@ namespace Learnify.Controllers
     [ApiController]
     public class ShoppingCartController : ControllerBase
     {
-        private ICartRepository cartRepository;
+        private readonly ICartRepository cartRepository;
         private readonly UserManager<ApplicationUser> userManager;
 
         public ShoppingCartController(ICartRepository cartRepository, UserManager<ApplicationUser> userManager)
@@ -24,30 +25,46 @@ namespace Learnify.Controllers
         public IActionResult AddToCart(int count, int courseId)
         {
             var userId = userManager.GetUserId(User);
-            Cart cart = new Cart
+            if (userId == null)
+                return Unauthorized();
+
+            // Check if the cart item already exists
+            var existingCart = cartRepository.GetOne(
+                includeProp: null,
+                expression: e => e.ApplicationUserId == userId && e.CourseId == courseId
+            );
+
+            if (existingCart != null)
+            {
+                existingCart.Count += count;
+                cartRepository.Commit();
+                return Ok(existingCart);
+            }
+
+            // Add new cart item
+            var cart = new Cart
             {
                 Count = count,
                 CourseId = courseId,
                 ApplicationUserId = userId
             };
 
-            cartRepository.Create(cart);
+            cartRepository.Add(cart);
             cartRepository.Commit();
 
             return Ok(cart);
-        }
-        (object, bool) f()
-        {
-            return ("fds", true);
         }
 
         [HttpGet]
         public IActionResult Index()
         {
             var userId = userManager.GetUserId(User);
+            if (userId == null)
+                return Unauthorized();
+
             var cartItems = cartRepository.GetAll(
-                includeProperties: new[] { "Course" },
-                filter: obj => (obj).ApplicationUserId == userId
+                includeProp: new Expression<Func<Cart, object>>[] { e => e.course },
+                expression: e => e.ApplicationUserId == userId
             ).ToList();
 
             return Ok(cartItems);
@@ -57,69 +74,88 @@ namespace Learnify.Controllers
         public IActionResult Increment(int courseId)
         {
             var userId = userManager.GetUserId(User);
+            if (userId == null)
+                return Unauthorized();
 
-            var cartItem = cartRepository.GetOne(e => e.ApplicationUserId == userId && e.CourseId == courseId);
-            if (cartItem != null)
-            {
-                cartItem.Count++;
-                cartRepository.Commit();
+            var cartItem = cartRepository.GetOne(
+                includeProp: null,
+                expression: e => e.ApplicationUserId == userId && e.CourseId == courseId
+            );
 
-                return Ok(cartItem);
-            }
+            if (cartItem == null)
+                return NotFound();
 
-            return NotFound();
+            cartItem.Count++;
+            cartRepository.Commit();
+
+            return Ok(cartItem);
         }
 
         [HttpPut("Decrement")]
         public IActionResult Decrement(int courseId)
         {
             var userId = userManager.GetUserId(User);
+            if (userId == null)
+                return Unauthorized();
 
-            var cartItem = cartRepository.GetOne(e => e.ApplicationUserId == userId && e.CourseId == courseId);
-            if (cartItem != null)
+            var cartItem = cartRepository.GetOne(
+                includeProp: null,
+                expression: e => e.ApplicationUserId == userId && e.CourseId == courseId
+            );
+
+            if (cartItem == null)
+                return NotFound();
+
+            cartItem.Count--;
+
+            if (cartItem.Count > 0)
             {
-                cartItem.Count--;
-                if (cartItem.Count > 0)
-                {
-                    cartRepository.Commit();
-                }
-                else
-                {
-                    cartItem.Count = 1;
-                }
-
+                cartRepository.Commit();
                 return Ok(cartItem);
             }
-
-            return NotFound();
+            else
+            {
+                cartRepository.Delete(cartItem);
+                cartRepository.Commit();
+                return Ok("Item removed from cart.");
+            }
         }
 
         [HttpDelete("Delete")]
         public IActionResult Delete(int courseId)
         {
             var userId = userManager.GetUserId(User);
+            if (userId == null)
+                return Unauthorized();
 
-            var cartItem = cartRepository.GetOne(e => e.ApplicationUserId == userId && e.CourseId == courseId);
-            if (cartItem != null)
-            {
-                cartRepository.Delete(cartItem);
-                cartRepository.Commit();
+            var cartItem = cartRepository.GetOne(
+                includeProp: null,
+                expression: e => e.ApplicationUserId == userId && e.CourseId == courseId
+            );
 
-                return Ok(cartItem);
-            }
+            if (cartItem == null)
+                return NotFound();
 
-            return NotFound();
+            cartRepository.Delete(cartItem);
+            cartRepository.Commit();
+
+            return Ok("Item removed from cart.");
         }
 
         [HttpPost("Pay")]
         public IActionResult Pay()
         {
             var userId = userManager.GetUserId(User);
+            if (userId == null)
+                return Unauthorized();
 
             var cartItems = cartRepository.GetAll(
-                includeProperties: new[] { "Course" },
-                filter: e => e.ApplicationUserId == userId
+                includeProp: new Expression<Func<Cart, object>>[] { e => e.course },
+                expression: e => e.ApplicationUserId == userId
             ).ToList();
+
+            if (!cartItems.Any())
+                return BadRequest("No items in the cart to process payment.");
 
             var options = new SessionCreateOptions
             {
@@ -141,7 +177,7 @@ namespace Learnify.Controllers
                         {
                             Name = item.course.Title
                         },
-                        UnitAmount = (long)((GetCourse(item).Price * 100))
+                        UnitAmount = (long)(item.course.Price * 100) // Convert price to cents
                     },
                     Quantity = item.Count,
                 });
@@ -153,9 +189,5 @@ namespace Learnify.Controllers
             return Created(session.Url, cartItems);
         }
 
-        private static Course GetCourse(Cart item)
-        {
-            return item.course;
-        }
     }
 }

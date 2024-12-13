@@ -28,7 +28,7 @@ namespace Learnify.Controllers
         {
             if (ModelState.IsValid)
             {
-                wishlistRepository.Create(wishlist);
+                wishlistRepository.Add(wishlist);
                 wishlistRepository.Commit();
 
                 return Created();

@@ -11,7 +11,7 @@ namespace Data.Repository
 {
     public class Repository<T> : IRepository<T> where T : class
     {
-        ApplicationDbContext dbContext;
+        ApplicationDbContext dbContext;// = new ApplicationDbContext();
         DbSet<T> dbSet;
         public Repository(ApplicationDbContext dbContext)
         {
@@ -19,6 +19,7 @@ namespace Data.Repository
             dbSet = dbContext.Set<T>();
         }
 
+        // CRUD
         public void Add(T entity)
         {
             dbSet.Add(entity);
@@ -67,31 +68,6 @@ namespace Data.Repository
         public T? GetOne(Expression<Func<T, object>>[]? includeProp = null, Expression<Func<T, bool>>? expression = null, bool tracked = true)
         {
             return GetAll(includeProp, expression, tracked).FirstOrDefault();
-        }
-
-        public IQueryable<T> GetAll(string? include = null)
-        {
-            throw new NotImplementedException();
-        }
-
-        public T? GetOne(Expression<Func<T, bool>> expression)
-        {
-            throw new NotImplementedException();
-        }
-
-        public void Create(T entity)
-        {
-            throw new NotImplementedException();
-        }
-
-        public IQueryable<T> GetAll(string? include = null, string[] includeProperties = null, Func<object, bool> filter = null)
-        {
-            throw new NotImplementedException();
-        }
-
-        public IQueryable<T> GetAll(string? include = null, string[] includeProperties = null, Func<T, bool> filter = null)
-        {
-            throw new NotImplementedException();
         }
     }
 }

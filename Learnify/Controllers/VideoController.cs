@@ -38,7 +38,7 @@ namespace Learnify.Controllers
         {
             if (ModelState.IsValid)
             {
-                videoRepository.Create(video);
+                videoRepository.Add(video);
                 videoRepository.Commit();
 
                 return Created();

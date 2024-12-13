@@ -38,7 +38,7 @@ namespace Learnify.Controllers
         {
             if (ModelState.IsValid)
             {
-                lessonRepository.Create(lesson);
+                lessonRepository.Add(lesson);
                 lessonRepository.Commit();
 
                 return Created();
